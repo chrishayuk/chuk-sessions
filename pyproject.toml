@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chuk-sessions"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+  "pydantic>=2.10.6",
+  "pyyaml>=6.0.2",
+  "redis>=6.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.5",
+  "pytest-asyncio>=0.26.0",
+  "ruff>=0.4.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["chuk_sessions*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v"
+asyncio_mode = "strict"
+
+[dependency-groups]
+dev = [
+    "psutil>=7.0.0",
+]
