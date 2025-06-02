@@ -18,7 +18,7 @@ import time
 import json
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, AsyncContextManager, Callable
 from dataclasses import dataclass, asdict, field
 
@@ -29,87 +29,102 @@ logger = logging.getLogger(__name__)
 _DEFAULT_SESSION_TTL_HOURS = 24
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Dataclass: SessionMetadata
+# ─────────────────────────────────────────────────────────────────────────────
+
 @dataclass
 class SessionMetadata:
     """Pure session metadata for grid operations."""
     session_id: str
     sandbox_id: str
     user_id: Optional[str] = None
-    created_at: str = None
-    expires_at: str = None
+    created_at: str | None = None
+    expires_at: str | None = None
     status: str = "active"
     last_accessed: Optional[str] = None
-    # Extension point for applications to add custom data
+    # Extension-point for applications to add custom data
     custom_metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def __post_init__(self):
+
+    def __post_init__(self) -> None:
+        now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         if self.created_at is None:
-            self.created_at = datetime.utcnow().isoformat() + "Z"
+            self.created_at = now_iso
         if self.last_accessed is None:
             self.last_accessed = self.created_at
-    
+
+    # --------------------------------------------------------------------- #
+    # Helpers
+    # --------------------------------------------------------------------- #
     def is_expired(self) -> bool:
-        """Check if session has expired."""
+        """Return True iff the session has passed its expiry timestamp."""
         if not self.expires_at:
             return False
-        expires = datetime.fromisoformat(self.expires_at.replace("Z", ""))
-        return datetime.utcnow() > expires
-    
+        expires = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
+        return datetime.now(timezone.utc) > expires
+
     def touch(self) -> None:
-        """Update last accessed time."""
-        self.last_accessed = datetime.utcnow().isoformat() + "Z"
-    
+        """Refresh the last-accessed timestamp to ‘now’."""
+        self.last_accessed = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    # --------------------------------------------------------------------- #
+    # Serialisation helpers
+    # --------------------------------------------------------------------- #
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'SessionMetadata':
+    def from_dict(cls, data: Dict[str, Any]) -> "SessionMetadata":
         return cls(**data)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Class: SessionManager
+# ─────────────────────────────────────────────────────────────────────────────
 
 class SessionManager:
     """
     Pure session manager with grid architecture support.
-    
-    Provides session lifecycle management and grid path generation
-    without any application-specific logic.
+
+    Provides session lifecycle management plus grid-style key helpers.
     """
-    
+
     def __init__(
         self,
         sandbox_id: str | None = None,
         session_factory: Optional[Callable[[], AsyncContextManager]] = None,
         default_ttl_hours: int = _DEFAULT_SESSION_TTL_HOURS,
-    ):
-        # 1️⃣  Resolve a *stable* sandbox namespace
+    ) -> None:
+        # 1️⃣  Determine a stable sandbox namespace
         if sandbox_id:
             self.sandbox_id = sandbox_id
         else:
-            # 1a. explicit env / .env
             env_id = os.getenv("CHUK_SANDBOX_ID")
-            # 1b. value forwarded from entry.py (host.sandbox_id)
             cfg_id = os.getenv("CHUK_HOST_SANDBOX_ID")
             self.sandbox_id = env_id or cfg_id or f"sandbox-{uuid.uuid4().hex[:8]}"
 
-        # Propagate for downstream code
+        # make it available to downstream libs
         os.environ.setdefault("CHUK_SANDBOX_ID", self.sandbox_id)
 
         self.default_ttl_hours = default_ttl_hours
 
-        # Use provided factory or auto-detect from environment
-        if session_factory:
+        # pick provider factory
+        if session_factory is not None:
             self.session_factory = session_factory
         else:
             from .provider_factory import factory_for_env
-
             self.session_factory = factory_for_env()
 
-        # Simple in-memory cache for performance
+        # local LRU-ish cache
         self._session_cache: Dict[str, SessionMetadata] = {}
         self._cache_lock = asyncio.Lock()
 
-        logger.info("SessionManager initialized for sandbox: %s", self.sandbox_id)
-    
+        logger.info("SessionManager initialised for sandbox: %s", self.sandbox_id)
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Public API – Lifecycle
+    # ──────────────────────────────────────────────────────────────────────
+
     async def allocate_session(
         self,
         session_id: Optional[str] = None,
@@ -118,34 +133,28 @@ class SessionManager:
         custom_metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
-        Allocate or validate a session.
-        
-        Args:
-            session_id: Existing session ID to validate, or None to create new
-            user_id: User ID to associate with the session
-            ttl_hours: Time-to-live in hours
-            custom_metadata: Application-specific metadata
-            
-        Returns:
-            Session ID (existing if valid, or newly created)
+        Allocate a new session, or validate & refresh an existing one.
         """
         ttl_hours = ttl_hours or self.default_ttl_hours
-        
+
+        # Fast-path: try to reuse supplied ID
         if session_id:
-            # Try to validate existing session
             metadata = await self._get_session_metadata(session_id)
             if metadata and not metadata.is_expired():
-                # Touch the session and update last accessed
                 metadata.touch()
                 await self._store_session_metadata(metadata)
                 return session_id
-        
-        # Create new session
+
+        # Otherwise create new
         if not session_id:
             session_id = self._generate_session_id(user_id)
-        
-        expires_at = (datetime.utcnow() + timedelta(hours=ttl_hours)).isoformat() + "Z"
-        
+
+        expires_at = (
+            (datetime.now(timezone.utc) + timedelta(hours=ttl_hours))
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+
         metadata = SessionMetadata(
             session_id=session_id,
             sandbox_id=self.sandbox_id,
@@ -153,322 +162,203 @@ class SessionManager:
             expires_at=expires_at,
             custom_metadata=custom_metadata or {},
         )
-        
         await self._store_session_metadata(metadata)
-        
-        # Cache locally for performance
+
         async with self._cache_lock:
             self._session_cache[session_id] = metadata
-        
-        logger.info(f"Session allocated: {session_id} (user: {user_id})")
+
+        logger.info("Session allocated: %s (user=%s)", session_id, user_id)
         return session_id
-    
+
     async def validate_session(self, session_id: str) -> bool:
-        """
-        Check if session is valid and not expired.
-        
-        Args:
-            session_id: Session ID to validate
-            
-        Returns:
-            True if session is valid, False otherwise
-        """
+        """Return True if session is present and not expired."""
         try:
             metadata = await self._get_session_metadata(session_id)
             if metadata and not metadata.is_expired():
-                # Touch the session
                 metadata.touch()
                 await self._store_session_metadata(metadata)
                 return True
             return False
-        except Exception as e:
-            logger.warning(f"Session validation failed for {session_id}: {e}")
+        except Exception as err:
+            logger.warning("Session validation failed for %s: %s", session_id, err)
             return False
-    
+
     async def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get complete session information.
-        
-        Args:
-            session_id: Session ID to retrieve
-            
-        Returns:
-            Session metadata dictionary or None if not found
-        """
         metadata = await self._get_session_metadata(session_id)
         return metadata.to_dict() if metadata else None
-    
+
     async def update_session_metadata(
-        self, 
-        session_id: str, 
+        self,
+        session_id: str,
         custom_metadata: Dict[str, Any],
-        merge: bool = True
+        merge: bool = True,
     ) -> bool:
-        """
-        Update custom metadata for a session.
-        
-        Args:
-            session_id: Session ID to update
-            custom_metadata: Custom metadata to add/update
-            merge: If True, merge with existing metadata; if False, replace
-            
-        Returns:
-            True if successful, False if session not found
-        """
+        """Merge or overwrite the custom-metadata blob."""
         try:
             metadata = await self._get_session_metadata(session_id)
             if not metadata:
                 return False
-            
+
             if merge:
                 metadata.custom_metadata.update(custom_metadata)
             else:
                 metadata.custom_metadata = custom_metadata.copy()
-            
+
             metadata.touch()
             await self._store_session_metadata(metadata)
-            
-            # Update cache
+
             async with self._cache_lock:
                 self._session_cache[session_id] = metadata
-            
             return True
-            
-        except Exception as e:
-            logger.error(f"Failed to update session metadata for {session_id}: {e}")
+        except Exception as err:
+            logger.error("Failed to update session metadata for %s: %s", session_id, err)
             return False
-    
-    async def extend_session_ttl(
-        self, 
-        session_id: str, 
-        additional_hours: int
-    ) -> bool:
-        """
-        Extend session TTL by additional hours.
-        
-        Args:
-            session_id: Session ID to extend
-            additional_hours: Hours to add to current expiration
-            
-        Returns:
-            True if successful, False if session not found
-        """
+
+    async def extend_session_ttl(self, session_id: str, additional_hours: int) -> bool:
+        """Push the expiry farther into the future."""
         try:
             metadata = await self._get_session_metadata(session_id)
             if not metadata:
                 return False
-            
-            # Calculate new expiration
-            current_expires = datetime.fromisoformat(metadata.expires_at.replace("Z", ""))
+
+            current_expires = datetime.fromisoformat(
+                metadata.expires_at.replace("Z", "+00:00")
+            )
             new_expires = current_expires + timedelta(hours=additional_hours)
-            metadata.expires_at = new_expires.isoformat() + "Z"
+            metadata.expires_at = new_expires.isoformat().replace("+00:00", "Z")
             metadata.touch()
-            
+
             await self._store_session_metadata(metadata)
-            
-            # Update cache
+
             async with self._cache_lock:
                 self._session_cache[session_id] = metadata
-            
-            logger.info(f"Extended session {session_id} by {additional_hours} hours")
+            logger.info("Extended session %s by %dh", session_id, additional_hours)
             return True
-            
-        except Exception as e:
-            logger.error(f"Failed to extend session TTL for {session_id}: {e}")
+        except Exception as err:
+            logger.error("Failed to extend session TTL for %s: %s", session_id, err)
             return False
-    
+
     async def delete_session(self, session_id: str) -> bool:
-        """
-        Delete a session completely.
-        
-        Args:
-            session_id: Session ID to delete
-            
-        Returns:
-            True if deleted, False if not found
-        """
+        """Delete a session from provider and in-process cache."""
         try:
-            # Remove from storage
             session_ctx_mgr = self.session_factory()
             async with session_ctx_mgr as session:
                 deleted = await session.delete(f"session:{session_id}")
-            
-            # Remove from cache
+
             async with self._cache_lock:
                 self._session_cache.pop(session_id, None)
-            
+
             if deleted:
-                logger.info(f"Session deleted: {session_id}")
+                logger.info("Session deleted: %s", session_id)
             return bool(deleted)
-            
-        except Exception as e:
-            logger.error(f"Failed to delete session {session_id}: {e}")
+        except Exception as err:
+            logger.error("Failed to delete session %s: %s", session_id, err)
             return False
-    
-    # ─────────────────────────────────────────────────────────────────
-    # Grid architecture support
-    # ─────────────────────────────────────────────────────────────────
-    
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Grid key helpers
+    # ──────────────────────────────────────────────────────────────────────
+
     def get_canonical_prefix(self, session_id: str) -> str:
-        """
-        Get grid path prefix for a session.
-        
-        Args:
-            session_id: Session ID
-            
-        Returns:
-            Grid prefix path: grid/{sandbox_id}/{session_id}/
-        """
+        """Return 'grid/{sandbox}/{session}/'."""
         return f"grid/{self.sandbox_id}/{session_id}/"
-    
+
     def generate_artifact_key(self, session_id: str, artifact_id: str) -> str:
-        """
-        Generate complete grid artifact key.
-        
-        Args:
-            session_id: Session ID
-            artifact_id: Artifact ID
-            
-        Returns:
-            Complete grid key: grid/{sandbox_id}/{session_id}/{artifact_id}
-        """
+        """Return full grid key for an artifact."""
         return f"grid/{self.sandbox_id}/{session_id}/{artifact_id}"
-    
+
     def parse_grid_key(self, grid_key: str) -> Optional[Dict[str, str]]:
-        """
-        Parse a grid key back into its components.
-        
-        Args:
-            grid_key: Complete grid key
-            
-        Returns:
-            Dictionary with sandbox_id, session_id, artifact_id or None if invalid
-        """
+        """Split a grid key back into components."""
         parts = grid_key.split("/")
-        if len(parts) >= 4 and parts[0] == "grid":
-            return {
-                "sandbox_id": parts[1],
-                "session_id": parts[2],
-                "artifact_id": parts[3] if len(parts) > 3 else None,
-                "subpath": "/".join(parts[4:]) if len(parts) > 4 else None
-            }
-        return None
-    
+        if len(parts) < 4 or parts[0] != "grid":
+            return None
+        return {
+            "sandbox_id": parts[1],
+            "session_id": parts[2],
+            "artifact_id": parts[3] if len(parts) > 3 else None,
+            "subpath": "/".join(parts[4:]) if len(parts) > 4 else None,
+        }
+
     def get_session_prefix_pattern(self) -> str:
-        """
-        Get prefix pattern for finding all sessions in this sandbox.
-        
-        Returns:
-            Prefix pattern: grid/{sandbox_id}/
-        """
+        """Prefix pattern for enumerating all sessions in this sandbox."""
         return f"grid/{self.sandbox_id}/"
-    
-    # ─────────────────────────────────────────────────────────────────
-    # Internal methods
-    # ─────────────────────────────────────────────────────────────────
-    
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Internal helpers
+    # ──────────────────────────────────────────────────────────────────────
+
     def _generate_session_id(self, user_id: Optional[str] = None) -> str:
-        """Generate a new session ID."""
         timestamp = int(time.time())
-        unique = uuid.uuid4().hex[:8]
-        
+        rnd = uuid.uuid4().hex[:8]
         if user_id:
-            # Create a safe user prefix
             safe_user = "".join(c for c in user_id if c.isalnum())[:8]
-            return f"sess-{safe_user}-{timestamp}-{unique}"
-        else:
-            return f"sess-{timestamp}-{unique}"
-    
+            return f"sess-{safe_user}-{timestamp}-{rnd}"
+        return f"sess-{timestamp}-{rnd}"
+
     async def _get_session_metadata(self, session_id: str) -> Optional[SessionMetadata]:
-        """Get session metadata from cache or storage."""
-        # Check cache first
+        # Try the in-process cache first
         async with self._cache_lock:
-            if session_id in self._session_cache:
-                cached = self._session_cache[session_id]
-                # Verify cache entry isn't expired
-                if not cached.is_expired():
-                    return cached
-                else:
-                    # Remove expired entry from cache
-                    del self._session_cache[session_id]
-        
-        # Query from storage
+            cached = self._session_cache.get(session_id)
+            if cached and not cached.is_expired():
+                return cached
+            if cached and cached.is_expired():
+                self._session_cache.pop(session_id, None)  # purge
+
+        # Fallback to provider
         try:
             session_ctx_mgr = self.session_factory()
             async with session_ctx_mgr as session:
-                raw_data = await session.get(f"session:{session_id}")
-                if raw_data:
-                    data = json.loads(raw_data)
-                    metadata = SessionMetadata.from_dict(data)
-                    
-                    # Cache it if not expired
-                    if not metadata.is_expired():
-                        async with self._cache_lock:
-                            self._session_cache[session_id] = metadata
-                        return metadata
-                    else:
-                        # Clean up expired session
-                        await self.delete_session(session_id)
-        except Exception as e:
-            logger.warning(f"Failed to get session {session_id}: {e}")
-        
-        return None
-    
+                raw = await session.get(f"session:{session_id}")
+            if not raw:
+                return None
+            data = json.loads(raw)
+            metadata = SessionMetadata.from_dict(data)
+            if metadata.is_expired():
+                await self.delete_session(session_id)
+                return None
+            # re-cache
+            async with self._cache_lock:
+                self._session_cache[session_id] = metadata
+            return metadata
+        except Exception as err:
+            logger.warning("Failed fetching session %s: %s", session_id, err)
+            return None
+
     async def _store_session_metadata(self, metadata: SessionMetadata) -> None:
-        """Store session metadata to storage."""
+        """Push the metadata blob into the provider with TTL semantics."""
         try:
             session_ctx_mgr = self.session_factory()
             async with session_ctx_mgr as session:
                 key = f"session:{metadata.session_id}"
-                
-                # Calculate TTL in seconds
-                expires = datetime.fromisoformat(metadata.expires_at.replace("Z", ""))
-                ttl_seconds = int((expires - datetime.utcnow()).total_seconds())
-                
-                # Don't store if already expired
-                if ttl_seconds <= 0:
-                    logger.warning(f"Attempted to store expired session: {metadata.session_id}")
+                expires = datetime.fromisoformat(metadata.expires_at.replace("Z", "+00:00"))
+                ttl = int((expires - datetime.now(timezone.utc)).total_seconds())
+                if ttl <= 0:  # already expired – don’t store
+                    logger.warning("Refusing to store expired session %s", metadata.session_id)
                     return
-                
-                data = json.dumps(metadata.to_dict())
-                await session.setex(key, ttl_seconds, data)
-                
-                # Update cache
-                async with self._cache_lock:
-                    self._session_cache[metadata.session_id] = metadata
-                    
-        except Exception as e:
-            raise SessionError(f"Session storage failed: {e}") from e
-    
-    # ─────────────────────────────────────────────────────────────────
-    # Administrative methods
-    # ─────────────────────────────────────────────────────────────────
-    
+                await session.setex(key, ttl, json.dumps(metadata.to_dict()))
+
+            async with self._cache_lock:
+                self._session_cache[metadata.session_id] = metadata
+        except Exception as err:
+            raise SessionError(f"Session storage failed: {err}") from err
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Admin helpers
+    # ──────────────────────────────────────────────────────────────────────
+
     async def cleanup_expired_sessions(self) -> int:
-        """
-        Clean up expired sessions from cache.
-        Note: Storage provider TTL should handle storage cleanup automatically.
-        
-        Returns:
-            Number of sessions removed from cache
-        """
-        cleaned = 0
+        """Purge expired sessions from the in-process cache."""
+        removed = 0
         async with self._cache_lock:
-            expired_keys = [
-                session_id for session_id, metadata in self._session_cache.items()
-                if metadata.is_expired()
-            ]
-            for session_id in expired_keys:
-                del self._session_cache[session_id]
-                cleaned += 1
-        
-        if cleaned > 0:
-            logger.info(f"Cleaned up {cleaned} expired sessions from cache")
-        
-        return cleaned
-    
+            for sid, meta in list(self._session_cache.items()):
+                if meta.is_expired():
+                    self._session_cache.pop(sid, None)
+                    removed += 1
+        if removed:
+            logger.info("Cleaned %d expired sessions from cache", removed)
+        return removed
+
     def get_cache_stats(self) -> Dict[str, Any]:
-        """Get cache statistics for monitoring."""
         return {
             "cached_sessions": len(self._session_cache),
             "sandbox_id": self.sandbox_id,
