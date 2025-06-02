@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # chuk_sessions/session_manager.py
 """
-Pure session manager with grid architecture support.
+Pure session manager.
 
 Simple rules:
 - Always have a session (auto-allocate if needed)
@@ -254,34 +254,6 @@ class SessionManager:
         except Exception as err:
             logger.error("Failed to delete session %s: %s", session_id, err)
             return False
-
-    # ──────────────────────────────────────────────────────────────────────
-    # Grid key helpers
-    # ──────────────────────────────────────────────────────────────────────
-
-    def get_canonical_prefix(self, session_id: str) -> str:
-        """Return 'grid/{sandbox}/{session}/'."""
-        return f"grid/{self.sandbox_id}/{session_id}/"
-
-    def generate_artifact_key(self, session_id: str, artifact_id: str) -> str:
-        """Return full grid key for an artifact."""
-        return f"grid/{self.sandbox_id}/{session_id}/{artifact_id}"
-
-    def parse_grid_key(self, grid_key: str) -> Optional[Dict[str, str]]:
-        """Split a grid key back into components."""
-        parts = grid_key.split("/")
-        if len(parts) < 4 or parts[0] != "grid":
-            return None
-        return {
-            "sandbox_id": parts[1],
-            "session_id": parts[2],
-            "artifact_id": parts[3] if len(parts) > 3 else None,
-            "subpath": "/".join(parts[4:]) if len(parts) > 4 else None,
-        }
-
-    def get_session_prefix_pattern(self) -> str:
-        """Prefix pattern for enumerating all sessions in this sandbox."""
-        return f"grid/{self.sandbox_id}/"
 
     # ──────────────────────────────────────────────────────────────────────
     # Internal helpers
