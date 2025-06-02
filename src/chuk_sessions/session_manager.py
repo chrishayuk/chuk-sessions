@@ -12,6 +12,7 @@ Simple rules:
 
 from __future__ import annotations
 
+import os
 import uuid
 import time
 import json
@@ -76,25 +77,38 @@ class SessionManager:
     
     def __init__(
         self,
-        sandbox_id: str,
+        sandbox_id: str | None = None,
         session_factory: Optional[Callable[[], AsyncContextManager]] = None,
         default_ttl_hours: int = _DEFAULT_SESSION_TTL_HOURS,
     ):
-        self.sandbox_id = sandbox_id
+        # 1️⃣  Resolve a *stable* sandbox namespace
+        if sandbox_id:
+            self.sandbox_id = sandbox_id
+        else:
+            # 1a. explicit env / .env
+            env_id = os.getenv("CHUK_SANDBOX_ID")
+            # 1b. value forwarded from entry.py (host.sandbox_id)
+            cfg_id = os.getenv("CHUK_HOST_SANDBOX_ID")
+            self.sandbox_id = env_id or cfg_id or f"sandbox-{uuid.uuid4().hex[:8]}"
+
+        # Propagate for downstream code
+        os.environ.setdefault("CHUK_SANDBOX_ID", self.sandbox_id)
+
         self.default_ttl_hours = default_ttl_hours
-        
+
         # Use provided factory or auto-detect from environment
         if session_factory:
             self.session_factory = session_factory
         else:
             from .provider_factory import factory_for_env
+
             self.session_factory = factory_for_env()
-        
+
         # Simple in-memory cache for performance
         self._session_cache: Dict[str, SessionMetadata] = {}
         self._cache_lock = asyncio.Lock()
-        
-        logger.info(f"SessionManager initialized for sandbox: {sandbox_id}")
+
+        logger.info("SessionManager initialized for sandbox: %s", self.sandbox_id)
     
     async def allocate_session(
         self,

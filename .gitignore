@@ -12,3 +12,4 @@ wheels/
 
 # env
 .env
+dump.rdb
