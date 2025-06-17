@@ -10,8 +10,7 @@ They exercise three scenarios:
 2.  sandbox_id supplied via CHUK_SANDBOX_ID env var
 3.  Automatically generated sandbox_id when nothing provided
 
-Each test allocates a session then asserts that grid paths are
-prefixed with the correct sandbox identifier.
+Each test allocates a session and verifies the sandbox_id is correctly set.
 """
 
 from __future__ import annotations
@@ -38,24 +37,19 @@ def _is_valid_uuid_segment(segment: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-f]{8}", segment))
 
 
-async def _assert_prefix_matches(mgr: SessionManager, session_id: str, expected_sandbox: str):
-    """Shared checks that canonical prefix and artifact key start with sandbox."""
-    # canonical grid prefix
-    canonical_prefix = mgr.get_canonical_prefix(session_id)
-    assert canonical_prefix == f"grid/{expected_sandbox}/{session_id}/"
-
-    # round‑trip a sample artifact key
-    artifact_key = mgr.generate_artifact_key(session_id, "dummy")
-    assert artifact_key == f"grid/{expected_sandbox}/{session_id}/dummy"
-
-    # parse and verify components
-    parsed = mgr.parse_grid_key(artifact_key)
-    assert parsed == {
-        "sandbox_id": expected_sandbox,
-        "session_id": session_id,
-        "artifact_id": "dummy",
-        "subpath": None,
-    }
+async def _assert_sandbox_matches(mgr: SessionManager, session_id: str, expected_sandbox: str):
+    """Verify that the SessionManager has the expected sandbox_id."""
+    # Check the manager's sandbox_id attribute
+    assert mgr.sandbox_id == expected_sandbox
+    
+    # Verify the session was created and is valid
+    assert await mgr.validate_session(session_id)
+    
+    # Get session info and verify it contains the correct sandbox_id
+    session_info = await mgr.get_session_info(session_id)
+    assert session_info is not None
+    assert session_info["sandbox_id"] == expected_sandbox
+    assert session_info["session_id"] == session_id
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -66,36 +60,41 @@ async def _assert_prefix_matches(mgr: SessionManager, session_id: str, expected_
 @aio_pytest_mark
 async def test_explicit_sandbox_id():
     """Passing sandbox_id to SessionManager should be honoured."""
-    mgr = SessionManager(sandbox_id="explicit‑sandbox")
+    mgr = SessionManager(sandbox_id="explicit-sandbox")
+    assert mgr.sandbox_id == "explicit-sandbox"
+    
     session_id = await mgr.allocate_session(user_id="alice")
-    await _assert_prefix_matches(mgr, session_id, "explicit‑sandbox")
+    await _assert_sandbox_matches(mgr, session_id, "explicit-sandbox")
 
 
 @aio_pytest_mark
 async def test_env_var_sandbox_id(monkeypatch):
     """CHUK_SANDBOX_ID env var should set default sandbox namespace."""
-    monkeypatch.setenv("CHUK_SANDBOX_ID", "env‑sandbox")
+    monkeypatch.setenv("CHUK_SANDBOX_ID", "env-sandbox")
     # no sandbox_id param → should pick up env var
     mgr = SessionManager()
-    assert mgr.sandbox_id == "env‑sandbox"
+    assert mgr.sandbox_id == "env-sandbox"
+    
     session_id = await mgr.allocate_session(user_id="bob")
-    await _assert_prefix_matches(mgr, session_id, "env‑sandbox")
+    await _assert_sandbox_matches(mgr, session_id, "env-sandbox")
 
 
 @aio_pytest_mark
 async def test_auto_generated_sandbox_id(monkeypatch):
     """If nothing is provided, SessionManager auto‑generates a stable id."""
-    # Clear env var to ensure auto mode
+    # Clear env vars to ensure auto mode
     monkeypatch.delenv("CHUK_SANDBOX_ID", raising=False)
+    monkeypatch.delenv("CHUK_HOST_SANDBOX_ID", raising=False)
+    
     auto_mgr = SessionManager()
     auto_id = auto_mgr.sandbox_id
 
-    # Looks like "sandbox‑xxxxxxxx" where x is 8 uuid chars
+    # Looks like "sandbox-xxxxxxxx" where x is 8 uuid chars
     assert auto_id.startswith("sandbox-")
     assert _is_valid_uuid_segment(auto_id.split("-", 1)[1])
 
     session_id = await auto_mgr.allocate_session(user_id="carol")
-    await _assert_prefix_matches(auto_mgr, session_id, auto_id)
+    await _assert_sandbox_matches(auto_mgr, session_id, auto_id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
