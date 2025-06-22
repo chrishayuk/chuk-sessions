@@ -42,6 +42,11 @@ redis = [
     { name = "redis" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "psutil" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "psutil", marker = "extra == 'dev'", specifier = ">=7.0.0" },
@@ -53,6 +58,9 @@ requires-dist = [
     { name = "redis", marker = "extra == 'redis'", specifier = ">=6.2.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.6" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "psutil", specifier = ">=7.0.0" }]
 
 [[package]]
 name = "colorama"

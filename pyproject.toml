@@ -43,3 +43,8 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v"
 asyncio_mode = "strict"
+
+[dependency-groups]
+dev = [
+    "psutil>=7.0.0",
+]

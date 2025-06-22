@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CHUK Sessions Example Script  –  **session-only edition**
+CHUK Sessions Example Script  -  **session-only edition**
 
 Demonstrates:
 
