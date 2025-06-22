@@ -2,7 +2,7 @@
 
 **Simple, fast async session management for Python**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Dead simple session management with automatic expiration, multiple storage backends, and multi-tenant isolation. Perfect for web apps, APIs, and any system needing reliable sessions.
@@ -10,7 +10,17 @@ Dead simple session management with automatic expiration, multiple storage backe
 ## 🚀 Quick Start
 
 ```bash
+# Basic installation (memory provider only)
 pip install chuk-sessions
+
+# With Redis support
+pip install chuk-sessions[redis]
+
+# Full installation with all optional dependencies
+pip install chuk-sessions[all]
+
+# Development installation
+pip install chuk-sessions[dev]
 ```
 
 ```python
@@ -66,19 +76,19 @@ await web_app.update_session_metadata(session_id, {"last_activity": "now"})
 
 ### ⚙️ **Multiple Backends**
 ```bash
-# Development - blazing fast in-memory
+# Development - blazing fast in-memory (default)
 export SESSION_PROVIDER=memory
 
-# Production - persistent Redis
+# Production - persistent Redis (requires chuk-sessions[redis])
 export SESSION_PROVIDER=redis
 export SESSION_REDIS_URL=redis://localhost:6379/0
 ```
 
 ### 📊 **Performance**
-| Provider | Throughput | Latency |
-|----------|------------|---------|
-| Memory | 1.8M ops/sec | 0.00ms |
-| Redis | 20K ops/sec | 0.05ms |
+| Provider | Throughput | Latency | Installation |
+|----------|------------|---------|--------------|
+| Memory | 1.8M ops/sec | 0.00ms | Default |
+| Redis | 20K ops/sec | 0.05ms | `pip install chuk-sessions[redis]` |
 
 ## 💡 Common Use Cases
 
@@ -137,7 +147,8 @@ Set via environment variables:
 
 ```bash
 # Provider selection
-export SESSION_PROVIDER=memory          # or redis
+export SESSION_PROVIDER=memory          # Default - no extra dependencies
+export SESSION_PROVIDER=redis           # Requires: pip install chuk-sessions[redis]
 
 # TTL settings
 export SESSION_DEFAULT_TTL=3600         # 1 hour default
@@ -145,6 +156,15 @@ export SESSION_DEFAULT_TTL=3600         # 1 hour default
 # Redis config (if using redis provider)
 export SESSION_REDIS_URL=redis://localhost:6379/0
 ```
+
+## 📦 Installation Options
+
+| Command | Includes | Use Case |
+|---------|----------|----------|
+| `pip install chuk-sessions` | Memory provider only | Development, testing, lightweight apps |
+| `pip install chuk-sessions[redis]` | + Redis support | Production apps with Redis |
+| `pip install chuk-sessions[all]` | All optional features | Maximum compatibility |
+| `pip install chuk-sessions[dev]` | Development tools | Contributing, testing |
 
 ## 📖 API Reference
 
@@ -181,7 +201,7 @@ cleaned = await mgr.cleanup_expired_sessions()
 ## 🎪 Examples
 
 ```bash
-# Interactive quickstart
+# Interactive quickstart (memory provider - no extra deps needed)
 python examples/quickstart.py
 
 # Full feature demo
@@ -198,6 +218,7 @@ python examples/performance_test.py
 - **Reliable**: Automatic TTL, proper error handling, production-tested
 - **Flexible**: Works for simple key-value storage or complex session management
 - **Isolated**: Multi-tenant by design with sandbox separation
+- **Optional Dependencies**: Install only what you need
 
 Perfect for web frameworks, API servers, MCP implementations, or any Python app needing sessions.
 
