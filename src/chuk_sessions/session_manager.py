@@ -167,7 +167,7 @@ class SessionManager:
         async with self._cache_lock:
             self._session_cache[session_id] = metadata
 
-        logger.info("Session allocated: %s (user=%s)", session_id, user_id)
+        logger.debug("Session allocated: %s (user=%s)", session_id, user_id)
         return session_id
 
     async def validate_session(self, session_id: str) -> bool:
@@ -249,7 +249,7 @@ class SessionManager:
                 self._session_cache.pop(session_id, None)
 
             if deleted:
-                logger.info("Session deleted: %s", session_id)
+                logger.debug("Session deleted: %s", session_id)
             return bool(deleted)
         except Exception as err:
             logger.error("Failed to delete session %s: %s", session_id, err)
