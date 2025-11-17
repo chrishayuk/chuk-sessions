@@ -278,6 +278,11 @@ def validate_session_id_format(
     if not _validate_protocol_specific(session_id, protocol, strict_mode):
         return False
 
+    # UUID and JWT protocols have fixed formats with known security properties,
+    # so skip entropy/diversity checks
+    if protocol in ("uuid", "jwt"):
+        return True
+
     # Entropy validation
     min_entropy = min_entropy_bits or DEFAULT_MIN_ENTROPY_BITS
     if not _validate_entropy(session_id, min_entropy, strict_mode):
