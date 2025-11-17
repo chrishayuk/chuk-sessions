@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-sessions"
-version = "0.5.1"
+version = "0.5.2"
 description = "CHUK Sessions provides a comprehensive, async-first session management system with automatic expiration, and support for both in-memory and Redis storage backends. Perfect for web applications, MCP servers, API gateways, and microservices that need reliable, scalable session handling."
 readme = "README.md"
 requires-python = ">=3.11"

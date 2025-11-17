@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import ssl
 from contextlib import asynccontextmanager
 from typing import Callable, AsyncContextManager
 
 from ..exceptions import ProviderError
+
+logger = logging.getLogger(__name__)
 
 # Try to import redis, but make it optional
 try:
@@ -42,7 +45,11 @@ def _check_redis_available():
 class _RedisSession:
     def __init__(self, url: str = _DEF_URL):
         _check_redis_available()
-        self._r = aioredis.from_url(url, decode_responses=True, **redis_kwargs)
+        try:
+            self._r = aioredis.from_url(url, decode_responses=True, **redis_kwargs)
+        except Exception as err:
+            logger.error("Failed to connect to Redis at %s: %s", url, err)
+            raise ProviderError(f"Redis connection failed: {err}") from err
 
     async def set(self, key: str, value: str):
         """Set a key-value pair with the default TTL."""
@@ -50,15 +57,27 @@ class _RedisSession:
 
     async def setex(self, key: str, ttl: int, value: str):
         """Set a key-value pair with explicit TTL in seconds."""
-        await self._r.setex(key, ttl, value)
+        try:
+            await self._r.setex(key, ttl, value)
+        except Exception as err:
+            logger.error("Redis setex failed for key %s: %s", key, err)
+            raise
 
     async def get(self, key: str):
         """Get a value by key."""
-        return await self._r.get(key)
+        try:
+            return await self._r.get(key)
+        except Exception as err:
+            logger.error("Redis get failed for key %s: %s", key, err)
+            raise
 
     async def delete(self, key: str):
         """Delete a key from Redis."""
-        return await self._r.delete(key)
+        try:
+            return await self._r.delete(key)
+        except Exception as err:
+            logger.error("Redis delete failed for key %s: %s", key, err)
+            raise
 
     async def close(self):
         await self._r.close()

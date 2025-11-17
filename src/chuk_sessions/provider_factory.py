@@ -11,11 +11,14 @@ Built-in providers
 
 from __future__ import annotations
 
+import logging
 import os
 from importlib import import_module
 from typing import AsyncContextManager, Callable
 
 from .enums import ProviderType
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["factory_for_env"]
 
@@ -37,8 +40,14 @@ def factory_for_env() -> Callable[[], AsyncContextManager]:
         return redis.factory()
 
     # Dynamic lookup for custom providers
-    mod = import_module(f"chuk_sessions.providers.{provider_str}")
+    try:
+        mod = import_module(f"chuk_sessions.providers.{provider_str}")
+    except ImportError as err:
+        logger.error("Failed to import provider '%s': %s", provider_str, err)
+        raise
+
     if not hasattr(mod, "factory"):
+        logger.error("Provider '%s' lacks a factory() function", provider_str)
         raise AttributeError(
             f"Session provider '{provider_str}' lacks a factory() function"
         )

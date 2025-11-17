@@ -79,7 +79,7 @@ class SessionManager:
         self._session_cache: dict[str, SessionMetadata] = {}
         self._cache_lock = asyncio.Lock()
 
-        logger.info("SessionManager initialised for sandbox: %s", self.sandbox_id)
+        logger.debug("SessionManager initialised for sandbox: %s", self.sandbox_id)
 
     # ──────────────────────────────────────────────────────────────────────
     # Public API – Lifecycle
@@ -140,7 +140,7 @@ class SessionManager:
                 return True
             return False
         except Exception as err:
-            logger.warning("Session validation failed for %s: %s", session_id, err)
+            logger.debug("Session validation failed for %s: %s", session_id, err)
             return False
 
     async def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
@@ -208,7 +208,7 @@ class SessionManager:
 
             async with self._cache_lock:
                 self._session_cache[session_id] = metadata
-            logger.info("Extended session %s by %dh", session_id, additional_hours)
+            logger.debug("Extended session %s by %dh", session_id, additional_hours)
             return True
         except Exception as err:
             logger.error("Failed to extend session TTL for %s: %s", session_id, err)
@@ -269,14 +269,14 @@ class SessionManager:
                 self._session_cache[session_id] = metadata
             return metadata
         except Exception as err:
-            logger.warning("Failed fetching session %s: %s", session_id, err)
+            logger.debug("Failed fetching session %s: %s", session_id, err)
             return None
 
     async def _store_session_metadata(self, metadata: SessionMetadata) -> None:
         """Push the metadata blob into the provider with TTL semantics."""
         try:
             if not metadata.expires_at:
-                logger.warning(
+                logger.debug(
                     "Cannot store session %s without expiry", metadata.session_id
                 )
                 return
@@ -289,7 +289,7 @@ class SessionManager:
                 )
                 ttl = int((expires - datetime.now(timezone.utc)).total_seconds())
                 if ttl <= 0:  # already expired – don't store
-                    logger.warning(
+                    logger.debug(
                         "Refusing to store expired session %s", metadata.session_id
                     )
                     return
@@ -298,6 +298,7 @@ class SessionManager:
             async with self._cache_lock:
                 self._session_cache[metadata.session_id] = metadata
         except Exception as err:
+            logger.error("Session storage failed for %s: %s", metadata.session_id, err)
             raise SessionError(f"Session storage failed: {err}") from err
 
     # ──────────────────────────────────────────────────────────────────────
@@ -313,7 +314,7 @@ class SessionManager:
                     self._session_cache.pop(sid, None)
                     removed += 1
         if removed:
-            logger.info("Cleaned %d expired sessions from cache", removed)
+            logger.debug("Cleaned %d expired sessions from cache", removed)
         return removed
 
     def get_cache_stats(self) -> dict[str, Any]:
