@@ -144,8 +144,22 @@ class SessionManager:
             return False
 
     async def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
+        """
+        Get session information as a dict.
+
+        For typed access, use get_session_metadata() instead.
+        """
         metadata = await self._get_session_metadata(session_id)
         return metadata.to_dict() if metadata else None
+
+    async def get_session_metadata(self, session_id: str) -> Optional[SessionMetadata]:
+        """
+        Get session information as typed SessionMetadata.
+
+        This returns the Pydantic model directly for better type safety.
+        For backwards compatibility, use get_session_info() which returns dict.
+        """
+        return await self._get_session_metadata(session_id)
 
     async def update_session_metadata(
         self,
