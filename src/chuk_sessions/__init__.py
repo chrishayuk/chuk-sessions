@@ -10,7 +10,7 @@ with TTL support, multi-tenant isolation, and multiple storage backends.
 from __future__ import annotations
 
 # Version
-__version__ = "2.0.0"
+__version__ = "0.5.1"
 
 # Core imports
 from .api import get_session, session
