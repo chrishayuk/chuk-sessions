@@ -200,7 +200,14 @@ redis = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "bandit" },
+    { name = "mypy" },
     { name = "psutil" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "twine" },
 ]
 
 [package.metadata]
@@ -221,7 +228,16 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "psutil", specifier = ">=7.0.0" }]
+dev = [
+    { name = "bandit", specifier = ">=1.7.0" },
+    { name = "mypy", specifier = ">=1.0.0" },
+    { name = "psutil", specifier = ">=7.0.0" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-asyncio", specifier = ">=0.26.0" },
+    { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "ruff", specifier = ">=0.4.6" },
+    { name = "twine", specifier = ">=5.0.0" },
+]
 
 [[package]]
 name = "colorama"
