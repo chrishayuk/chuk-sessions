@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-sessions"
-version = "0.4.2"
+version = "0.5"
 description = "CHUK Sessions provides a comprehensive, async-first session management system with automatic expiration, and support for both in-memory and Redis storage backends. Perfect for web applications, MCP servers, API gateways, and microservices that need reliable, scalable session handling."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,7 +26,11 @@ redis = [
 dev = [
   "pytest>=8.3.5",
   "pytest-asyncio>=0.26.0",
+  "pytest-cov>=5.0.0",
   "ruff>=0.4.6",
+  "mypy>=1.0.0",
+  "bandit>=1.7.0",
+  "twine>=5.0.0",
   "psutil>=7.0.0",
 ]
 
@@ -44,6 +48,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v"
 asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
 
 [dependency-groups]
 dev = [

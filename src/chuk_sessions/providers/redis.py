@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # chuk_sessions/providers/redis.py
 """Redis-backed session store (wraps redis.asyncio)."""
+
 from __future__ import annotations
 
 import os
@@ -12,13 +13,16 @@ from ..exceptions import ProviderError
 
 # Try to import redis, but make it optional
 try:
-    import redis.asyncio as aioredis
+    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
     aioredis = None
 
-_DEF_URL = os.getenv("SESSION_REDIS_URL", os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+_DEF_URL = os.getenv(
+    "SESSION_REDIS_URL", os.getenv("REDIS_URL", "redis://localhost:6379/0")
+)
 _tls_insecure = os.getenv("REDIS_TLS_INSECURE", "0") == "1"
 redis_kwargs = {"ssl_cert_reqs": ssl.CERT_NONE} if _tls_insecure else {}
 
@@ -63,7 +67,7 @@ class _RedisSession:
 def factory(url: str = _DEF_URL) -> Callable[[], AsyncContextManager]:
     """Create a Redis session factory."""
     _check_redis_available()
-    
+
     @asynccontextmanager
     async def _ctx():
         client = _RedisSession(url)

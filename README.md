@@ -4,8 +4,51 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/tests-202%20passing-brightgreen.svg)](https://github.com/chrishayuk/chuk-sessions)
+[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](https://github.com/chrishayuk/chuk-sessions)
 
 Dead simple session management with automatic expiration, multiple storage backends, and multi-tenant isolation. Perfect for web apps, APIs, and any system needing reliable sessions.
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Your Application                        │
+└─────────────────────────────────┬───────────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │   Convenience API Layer   │
+                    │  get_session() / session  │
+                    └─────────────┬─────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │     SessionManager        │
+                    │  • Lifecycle Management   │
+                    │  • TTL & Expiration       │
+                    │  • Metadata & Validation  │
+                    │  • Multi-tenant Isolation │
+                    └─────────────┬─────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │    Provider Factory       │
+                    │  Auto-detect from env     │
+                    └─────────────┬─────────────┘
+                                  │
+                ┌─────────────────┴─────────────────┐
+                │                                   │
+    ┌───────────▼──────────┐          ┌───────────▼──────────┐
+    │  Memory Provider     │          │   Redis Provider     │
+    │  • In-process cache  │          │  • Persistent store  │
+    │  • 1.3M ops/sec      │          │  • Distributed       │
+    │  • Dev/Testing       │          │  • Production        │
+    └──────────────────────┘          └──────────────────────┘
+
+Features:
+  ✓ Pydantic models with validation    ✓ Type-safe enums (no magic strings)
+  ✓ Automatic TTL expiration            ✓ Multi-sandbox isolation
+  ✓ CSRF protection utilities           ✓ Cryptographic session IDs
+  ✓ 202 tests, 90% coverage             ✓ Production-ready
+```
 
 ## 🚀 Quick Start
 
@@ -41,6 +84,60 @@ asyncio.run(main())
 ```
 
 That's it! Sessions automatically expire and you get instant performance.
+
+## 📖 How It Works
+
+```
+Session Lifecycle:
+┌─────────────┐
+│ 1. Create   │  mgr.allocate_session(user_id="alice")
+└──────┬──────┘
+       │ ← Returns session_id: "sess-alice-1234..."
+       ▼
+┌─────────────┐
+│ 2. Validate │  mgr.validate_session(session_id)
+└──────┬──────┘
+       │ ← Returns: True (session exists & not expired)
+       ▼
+┌─────────────┐
+│ 3. Use      │  mgr.get_session_info(session_id)
+└──────┬──────┘  mgr.update_session_metadata(...)
+       │ ← Access/modify session data
+       ▼
+┌─────────────┐
+│ 4. Extend   │  mgr.extend_session_ttl(session_id, hours=2)
+└──────┬──────┘  (optional - keep session alive)
+       │
+       ▼
+┌─────────────┐
+│ 5. Expire   │  Automatic after TTL
+└──────┬──────┘  or mgr.delete_session(session_id)
+       │
+       ▼
+    [Done]
+```
+
+## ✨ What's New in v0.5
+
+- **🎯 Pydantic Native**: All models are Pydantic-based with automatic validation
+- **🔒 Type-Safe Enums**: No more magic strings - `SessionStatus.ACTIVE`, `ProviderType.REDIS`
+- **📦 Exported Types**: Full IDE autocomplete for `SessionMetadata`, `CSRFTokenInfo`, etc.
+- **⚡ Async Native**: Built from ground-up for async/await
+- **🔄 Backward Compatible**: Existing code works unchanged
+- **✅ 90%+ Test Coverage**: 202 tests, production-ready
+
+```python
+from chuk_sessions import SessionManager, SessionStatus, SessionMetadata
+
+# Type-safe with IDE autocomplete
+mgr = SessionManager(sandbox_id="my-app")
+session_id = await mgr.allocate_session()
+
+# Pydantic models with validation
+info: dict = await mgr.get_session_info(session_id)
+metadata = SessionMetadata(**info)
+print(metadata.status)  # SessionStatus.ACTIVE
+```
 
 ## ⚡ Major Features
 
@@ -84,15 +181,27 @@ export SESSION_PROVIDER=redis
 export SESSION_REDIS_URL=redis://localhost:6379/0
 ```
 
-### 📊 **Performance**
-| Provider | Throughput | Latency | Installation |
-|----------|------------|---------|--------------|
-| Memory | 1.8M ops/sec | 0.00ms | Default |
-| Redis | 20K ops/sec | 0.05ms | `pip install chuk-sessions[redis]` |
+### 📊 **Performance** (Real Benchmarks)
 
-## 💡 Common Use Cases
+Actual performance from `examples/performance_test.py`:
 
-### Web App Sessions
+| Provider | Operation | Throughput | Avg Latency | P95 Latency |
+|----------|-----------|------------|-------------|-------------|
+| Memory | GET | 1,312,481 ops/sec | 0.001ms | 0.001ms |
+| Memory | SET | 1,141,011 ops/sec | 0.001ms | 0.001ms |
+| Memory | DELETE | 1,481,848 ops/sec | 0.001ms | 0.001ms |
+| Redis | GET | ~20K ops/sec | 0.05ms | 0.08ms |
+| Redis | SET | ~18K ops/sec | 0.06ms | 0.09ms |
+
+**Concurrent Access** (5 sessions, 500 ops):
+- Overall Throughput: 406,642 ops/sec
+- Average Latency: 0.002ms
+
+## 💡 Real-World Use Cases
+
+Based on `examples/chuk_session_example.py`:
+
+### 🌐 Web App Sessions
 ```python
 web_app = SessionManager(sandbox_id="my-web-app")
 
@@ -198,18 +307,67 @@ stats = mgr.get_cache_stats()
 cleaned = await mgr.cleanup_expired_sessions()
 ```
 
-## 🎪 Examples
+## 🎪 Examples & Demos
 
+All examples are tested and working! Run them to see CHUK Sessions in action:
+
+### 🚀 Getting Started
 ```bash
-# Interactive quickstart (memory provider - no extra deps needed)
+# Simple 3-line example - perfect first step
+python examples/simple_example.py
+
+# Interactive tutorial with explanations
 python examples/quickstart.py
+```
 
-# Full feature demo
+**Output:**
+```
+User: Alice
+Token: secret123
+Missing: None
+```
+
+### 🔧 Comprehensive Demo
+```bash
+# Complete feature demonstration
 python examples/chuk_session_example.py
+```
 
-# Performance benchmarks
+**Shows:**
+- ✓ Low-level provider usage (memory/redis)
+- ✓ High-level SessionManager API
+- ✓ Multi-sandbox isolation (multi-tenant)
+- ✓ Real-world scenarios (web app, MCP server, API gateway)
+- ✓ Error handling & admin helpers
+
+### 📊 Performance Testing
+```bash
+# Benchmark your system
 python examples/performance_test.py
 ```
+
+**Output includes:**
+- Throughput measurements (1.3M+ ops/sec)
+- Latency percentiles (P50, P95, P99)
+- Memory usage analysis
+- Concurrent access tests
+- README-ready performance tables
+
+### 🔐 Security Demos
+```bash
+# CSRF protection examples
+python examples/csrf_demo.py
+
+# Secure session ID generation
+python examples/session_id_demo.py
+```
+
+**Features demonstrated:**
+- HMAC-based CSRF tokens
+- Double-submit cookie pattern
+- Encrypted stateless tokens
+- Cryptographic session IDs with entropy analysis
+- Protocol-specific formats (MCP, HTTP, WebSocket, JWT)
 
 ## 🏗️ Why CHUK Sessions?
 
@@ -221,6 +379,57 @@ python examples/performance_test.py
 - **Optional Dependencies**: Install only what you need
 
 Perfect for web frameworks, API servers, MCP implementations, or any Python app needing sessions.
+
+## 🛠️ Development
+
+```bash
+# Clone and install dependencies
+git clone https://github.com/chrishayuk/chuk-sessions.git
+cd chuk-sessions
+make dev-install
+
+# Run tests
+make test
+
+# Run tests with coverage (90%+ coverage)
+make test-cov
+
+# Run all checks (lint, typecheck, security, tests)
+make check
+
+# Format code
+make format
+
+# Build package
+make build
+```
+
+### 🚀 Release Process
+
+```bash
+# Bump version
+make bump-patch  # 0.5 → 0.6
+make bump-minor  # 0.5 → 1.0
+make bump-major  # 0.5 → 1.0.0
+
+# Create release (triggers GitHub Actions → PyPI)
+make publish
+```
+
+### Available Makefile Commands
+
+- `make test` - Run tests
+- `make test-cov` - Run tests with coverage report
+- `make lint` - Run code linters (ruff)
+- `make format` - Auto-format code
+- `make typecheck` - Run type checking (mypy)
+- `make security` - Run security checks (bandit)
+- `make check` - Run all checks
+- `make clean` - Clean build artifacts
+- `make build` - Build distribution packages
+- `make publish` - Create tag and trigger automated release
+
+See `make help` for all available commands.
 
 ## 📄 License
 

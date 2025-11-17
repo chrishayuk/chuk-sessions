@@ -13,10 +13,12 @@ from __future__ import annotations
 __version__ = "2.0.0"
 
 # Core imports
-from .session_manager import SessionManager
-from .exceptions import ProviderError, SessionError
-from .provider_factory import factory_for_env
 from .api import get_session, session
+from .enums import ProtocolType, ProviderType, SessionStatus, TokenType
+from .exceptions import ProviderError, SessionError
+from .models import CSRFTokenInfo, SessionMetadata
+from .provider_factory import factory_for_env
+from .session_manager import SessionManager
 
 # Convenience imports for providers
 from .providers import memory, redis
@@ -25,17 +27,24 @@ __all__ = [
     # Simple API
     "get_session",
     "session",
-    
     # High-level API
     "SessionManager",
-    
     # Factory
     "factory_for_env",
-    
     # Exceptions
     "ProviderError",
     "SessionError",
-    
+    # Models
+    "SessionMetadata",
+    "CSRFTokenInfo",
+    # Enums
+    "SessionStatus",
+    "ProviderType",
+    "TokenType",
+    "ProtocolType",
+    # Providers
+    "memory",
+    "redis",
     # Version
     "__version__",
 ]

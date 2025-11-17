@@ -15,10 +15,7 @@ Each test allocates a session and verifies the sandbox_id is correctly set.
 
 from __future__ import annotations
 
-import os
 import re
-import asyncio
-import uuid
 
 import pytest
 
@@ -37,14 +34,16 @@ def _is_valid_uuid_segment(segment: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-f]{8}", segment))
 
 
-async def _assert_sandbox_matches(mgr: SessionManager, session_id: str, expected_sandbox: str):
+async def _assert_sandbox_matches(
+    mgr: SessionManager, session_id: str, expected_sandbox: str
+):
     """Verify that the SessionManager has the expected sandbox_id."""
     # Check the manager's sandbox_id attribute
     assert mgr.sandbox_id == expected_sandbox
-    
+
     # Verify the session was created and is valid
     assert await mgr.validate_session(session_id)
-    
+
     # Get session info and verify it contains the correct sandbox_id
     session_info = await mgr.get_session_info(session_id)
     assert session_info is not None
@@ -62,7 +61,7 @@ async def test_explicit_sandbox_id():
     """Passing sandbox_id to SessionManager should be honoured."""
     mgr = SessionManager(sandbox_id="explicit-sandbox")
     assert mgr.sandbox_id == "explicit-sandbox"
-    
+
     session_id = await mgr.allocate_session(user_id="alice")
     await _assert_sandbox_matches(mgr, session_id, "explicit-sandbox")
 
@@ -74,7 +73,7 @@ async def test_env_var_sandbox_id(monkeypatch):
     # no sandbox_id param → should pick up env var
     mgr = SessionManager()
     assert mgr.sandbox_id == "env-sandbox"
-    
+
     session_id = await mgr.allocate_session(user_id="bob")
     await _assert_sandbox_matches(mgr, session_id, "env-sandbox")
 
@@ -85,7 +84,7 @@ async def test_auto_generated_sandbox_id(monkeypatch):
     # Clear env vars to ensure auto mode
     monkeypatch.delenv("CHUK_SANDBOX_ID", raising=False)
     monkeypatch.delenv("CHUK_HOST_SANDBOX_ID", raising=False)
-    
+
     auto_mgr = SessionManager()
     auto_id = auto_mgr.sandbox_id
 

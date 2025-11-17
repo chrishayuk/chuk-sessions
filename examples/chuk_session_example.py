@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import time
 from typing import Any, Dict
 
 from chuk_sessions.provider_factory import factory_for_env
@@ -69,7 +68,9 @@ async def demonstrate_basic_providers():
         print("\n⏰ Waiting 6 s for temp_token to expire…")
         await asyncio.sleep(6)
         print(f"   • temp_token after 6 s → {await session.get('temp_token')}")
-        print(f"   • user:123 still valid → {await session.get('user:123') is not None}")
+        print(
+            f"   • user:123 still valid → {await session.get('user:123') is not None}"
+        )
 
 
 # ────────────────────────────────────────────────────────────────────
