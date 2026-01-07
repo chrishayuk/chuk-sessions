@@ -176,9 +176,13 @@ await web_app.update_session_metadata(session_id, {"last_activity": "now"})
 # Development - blazing fast in-memory (default)
 export SESSION_PROVIDER=memory
 
-# Production - persistent Redis (requires chuk-sessions[redis])
+# Production - persistent Redis standalone (requires chuk-sessions[redis])
 export SESSION_PROVIDER=redis
 export SESSION_REDIS_URL=redis://localhost:6379/0
+
+# Production - Redis Cluster with automatic detection
+export SESSION_PROVIDER=redis
+export SESSION_REDIS_URL=redis://node1:7000,node2:7001,node3:7002
 ```
 
 ### 📊 **Performance** (Real Benchmarks)
@@ -263,7 +267,15 @@ export SESSION_PROVIDER=redis           # Requires: pip install chuk-sessions[re
 export SESSION_DEFAULT_TTL=3600         # 1 hour default
 
 # Redis config (if using redis provider)
+# Standalone Redis
 export SESSION_REDIS_URL=redis://localhost:6379/0
+
+# Redis Cluster (comma-separated hosts - automatically detected)
+export SESSION_REDIS_URL=redis://node1:7000,node2:7001,node3:7002
+
+# Redis with TLS
+export SESSION_REDIS_URL=rediss://localhost:6380/0
+export REDIS_TLS_INSECURE=1             # Set to 1 to skip certificate verification (dev only)
 ```
 
 ## 📦 Installation Options
