@@ -3,9 +3,9 @@
 **Simple, fast async session management for Python**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-202%20passing-brightgreen.svg)](https://github.com/chrishayuk/chuk-sessions)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](https://github.com/chrishayuk/chuk-sessions)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Tests](https://img.shields.io/badge/tests-202%20passing-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)]()
 
 Dead simple session management with automatic expiration, multiple storage backends, and multi-tenant isolation. Perfect for web apps, APIs, and any system needing reliable sessions.
 
@@ -445,4 +445,4 @@ See `make help` for all available commands.
 
 ## 📄 License
 
-MIT License
+Apache 2.0
