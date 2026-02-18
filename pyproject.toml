@@ -44,6 +44,9 @@ all = [
 where = ["src"]
 include = ["chuk_sessions*"]
 
+[tool.setuptools.package-data]
+chuk_sessions = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
