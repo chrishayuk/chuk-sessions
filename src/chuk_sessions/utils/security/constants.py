@@ -42,8 +42,9 @@ MCP_EXTENDED_CHARS = ALPHABET_URL_SAFE + "."
 # Default session ID formats for different protocols
 SESSION_ID_FORMATS: Dict[str, Dict[str, Any]] = {
     # Generic sessions (default format)
+    # Length 44 ensures estimate_entropy() >= 128 bits even with max (50%) penalty
     "generic": {
-        "length": 32,
+        "length": 44,
         "alphabet": ALPHABET_ALPHANUMERIC,
         "prefix": "sess",
         "separator": "-",
