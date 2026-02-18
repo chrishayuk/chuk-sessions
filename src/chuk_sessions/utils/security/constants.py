@@ -108,7 +108,7 @@ SESSION_ID_FORMATS: Dict[str, Dict[str, Any]] = {
 # Minimum entropy requirements
 DEFAULT_MIN_ENTROPY_BITS = 128
 MINIMUM_ENTROPY_BITS = 64  # Absolute minimum for any session
-RECOMMENDED_ENTROPY_BITS = 128  # Recommended for production
+RECOMMENDED_ENTROPY_BITS = 128  # Recommended minimum
 
 # Session ID constraints
 DEFAULT_SESSION_ID_MIN_LENGTH = 16

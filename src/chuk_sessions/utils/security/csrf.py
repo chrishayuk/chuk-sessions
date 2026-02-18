@@ -440,7 +440,7 @@ def generate_encrypted_csrf_token(
 
     Note:
         This is a simplified encryption using HMAC-based approach.
-        For production use with highly sensitive data, consider using
+        For highly sensitive data, consider using
         proper authenticated encryption like AES-GCM.
 
     Examples:
@@ -469,7 +469,7 @@ def generate_encrypted_csrf_token(
     )
 
     # Simple encryption using XOR with key stream (for demo purposes)
-    # In production, use proper authenticated encryption
+    # For sensitive data, use proper authenticated encryption
     payload_bytes = payload_json.encode("utf-8")
 
     # Generate key stream

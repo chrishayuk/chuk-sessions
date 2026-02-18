@@ -431,7 +431,7 @@ def main():
         print("   • Choose appropriate protocols (MCP, HTTP, WebSocket, etc.)")
         print("   • Validate session IDs with validate_session_id_format()")
         print("   • Analyze security with analyze_session_id_strength()")
-        print("   • Aim for 128+ bits of entropy in production")
+        print("   • Aim for 128+ bits of entropy")
         print("   • Avoid predictable patterns and short lengths")
 
     except Exception as e:

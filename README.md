@@ -40,14 +40,14 @@ Dead simple session management with automatic expiration, multiple storage backe
     │  Memory Provider     │          │   Redis Provider     │
     │  • In-process cache  │          │  • Persistent store  │
     │  • 1.3M ops/sec      │          │  • Distributed       │
-    │  • Dev/Testing       │          │  • Production        │
+    │  • Dev/Testing       │          │  • Persistent store  │
     └──────────────────────┘          └──────────────────────┘
 
 Features:
   ✓ Pydantic models with validation    ✓ Type-safe enums (no magic strings)
   ✓ Automatic TTL expiration            ✓ Multi-sandbox isolation
   ✓ CSRF protection utilities           ✓ Cryptographic session IDs
-  ✓ 202 tests, 90% coverage             ✓ Production-ready
+  ✓ 202 tests, 90% coverage             ✓ Battle-tested
 ```
 
 ## 🚀 Quick Start
@@ -124,7 +124,7 @@ Session Lifecycle:
 - **📦 Exported Types**: Full IDE autocomplete for `SessionMetadata`, `CSRFTokenInfo`, etc.
 - **⚡ Async Native**: Built from ground-up for async/await
 - **🔄 Backward Compatible**: Existing code works unchanged
-- **✅ 90%+ Test Coverage**: 202 tests, production-ready
+- **✅ 90%+ Test Coverage**: 202 tests, battle-tested
 
 ```python
 from chuk_sessions import SessionManager, SessionStatus, SessionMetadata
@@ -176,11 +176,11 @@ await web_app.update_session_metadata(session_id, {"last_activity": "now"})
 # Development - blazing fast in-memory (default)
 export SESSION_PROVIDER=memory
 
-# Production - persistent Redis standalone (requires chuk-sessions[redis])
+# Persistent - Redis standalone (requires chuk-sessions[redis])
 export SESSION_PROVIDER=redis
 export SESSION_REDIS_URL=redis://localhost:6379/0
 
-# Production - Redis Cluster with automatic detection
+# Persistent - Redis Cluster with automatic detection
 export SESSION_PROVIDER=redis
 export SESSION_REDIS_URL=redis://node1:7000,node2:7001,node3:7002
 ```
@@ -283,7 +283,7 @@ export REDIS_TLS_INSECURE=1             # Set to 1 to skip certificate verificat
 | Command | Includes | Use Case |
 |---------|----------|----------|
 | `pip install chuk-sessions` | Memory provider only | Development, testing, lightweight apps |
-| `pip install chuk-sessions[redis]` | + Redis support | Production apps with Redis |
+| `pip install chuk-sessions[redis]` | + Redis support | Persistent apps with Redis |
 | `pip install chuk-sessions[all]` | All optional features | Maximum compatibility |
 | `pip install chuk-sessions[dev]` | Development tools | Contributing, testing |
 
@@ -385,7 +385,7 @@ python examples/session_id_demo.py
 
 - **Simple**: One import, one line to start storing sessions
 - **Fast**: 1.8M ops/sec in memory, 20K ops/sec with Redis
-- **Reliable**: Automatic TTL, proper error handling, production-tested
+- **Reliable**: Automatic TTL, proper error handling, battle-tested
 - **Flexible**: Works for simple key-value storage or complex session management
 - **Isolated**: Multi-tenant by design with sandbox separation
 - **Optional Dependencies**: Install only what you need
